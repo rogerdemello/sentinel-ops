@@ -23,7 +23,20 @@ logger = logging.getLogger("sentinelops")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    # Warm the psycopg import in the main thread BEFORE any background writer/RAG
+    # thread starts, to avoid a concurrent-import deadlock on psycopg.types.json.
+    if settings.db_persist_enabled:
+        try:
+            import psycopg  # noqa: F401
+            from psycopg.types.json import Json  # noqa: F401
+        except Exception:  # noqa: BLE001
+            pass
+
     seed_topology()
+    if settings.rag_enabled:
+        from app.memory.store import ensure_schema
+
+        ensure_schema()
     logger.info("SentinelOps backend ready (env=%s)", settings.environment)
 
     # Simulator is started lazily here once M3 wires it in.
@@ -69,6 +82,8 @@ def create_app() -> FastAPI:
 
     from app.api.routes import (
         audit,
+        copilot,
+        evaluation,
         graph,
         health,
         incidents,
@@ -96,6 +111,8 @@ def create_app() -> FastAPI:
     app.include_router(audit.router)
     app.include_router(postmortem.router)
     app.include_router(stream.router)
+    app.include_router(copilot.router)
+    app.include_router(evaluation.router)
     return app
 
 

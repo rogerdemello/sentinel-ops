@@ -112,6 +112,7 @@ def _llm_finding(agent: str, ctx: DiagnosisContext) -> AgentFinding:
         f"Impacted services: {', '.join(ctx.impacted_service_ids) or 'none yet'}.\n\n"
         f"Relevant metrics:\n{ctx.metrics_table(spec['metrics'])}\n\n"
         f"Recent events:\n" + "\n".join(f"  - {e}" for e in ctx.recent_events[:8])
+        + ("\n\n" + ctx.similar_block() if ctx.similar_incidents else "")
     )
     data = get_router().complete_json(system, user, agent=agent, max_tokens=500)
     return AgentFinding(

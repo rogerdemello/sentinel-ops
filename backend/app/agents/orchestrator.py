@@ -43,6 +43,7 @@ def _synthesize_llm(ctx: DiagnosisContext, findings: list[AgentFinding]) -> tupl
         f"Incident: {ctx.incident_type.value} at {ctx.failing_service.name}.\n"
         f"Impacted: {', '.join(ctx.impacted_service_ids) or 'n/a'}.\n\n"
         f"Agent findings:\n{findings_txt}"
+        + ("\n\n" + ctx.similar_block() if ctx.similar_incidents else "")
     )
     data = get_router().complete_json(system, user, agent="orchestrator", max_tokens=600)
     return str(data.get("root_cause", "")), str(data.get("diagnosis", ""))

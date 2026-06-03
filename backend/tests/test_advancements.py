@@ -77,3 +77,16 @@ def test_synthetic_source_emits_metrics():
     seed_topology()
     metrics, events = SyntheticSource().collect(get_clock().now())
     assert len(metrics) > 0
+
+
+def test_evaluation_harness_detects_all_scenarios_early():
+    from app.eval.harness import evaluate
+
+    report = evaluate(max_ticks=60)
+    # Every injected scenario should be detected, with no baseline false positives.
+    assert report["recall"] == 1.0
+    assert report["false_positives_baseline"] == 0
+    assert report["precision"] == 1.0
+    # And the whole point: predicted before the metric breached.
+    assert report["early_warning_rate"] >= 0.8
+    assert report["mean_lead_time_min"] is not None

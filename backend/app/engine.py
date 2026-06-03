@@ -30,6 +30,7 @@ from app.models import (
 )
 from app.notify.notifier import get_notifier
 from app.forecasting.forecaster import get_forecaster
+from app.memory.store import recall
 from app.policy import get_policy
 from app.remediation.workflow import WorkflowError, approve_and_execute
 from app.telemetry.scenario_manager import get_scenario_manager
@@ -174,6 +175,15 @@ def _open_incident(service_id: str, pred: Prediction, now: float) -> None:
         for e in repo.list_events(limit=12)
         if e.service_id in {service_id, *impacted}
     ]
+    # RAG: retrieve similar past incidents to ground the diagnosis.
+    similar = recall(
+        f"{pred.incident_type} on {service.name} lead_metric={pred.metric}", k=3
+    )
+    similar_lines = [
+        f"{s['summary']} (root_cause: {s['root_cause']}, similarity {s['score']})"
+        for s in similar
+    ]
+
     ctx = DiagnosisContext(
         failing_service=service,
         incident_type=pred.incident_type,
@@ -183,6 +193,7 @@ def _open_incident(service_id: str, pred: Prediction, now: float) -> None:
         lead_metric=pred.metric,
         scenario_hint=scenario.root_cause_hint if scenario else None,
         recommended_actions=scenario.recommended_actions if scenario else [],
+        similar_incidents=similar_lines,
     )
     findings, root_cause, diagnosis = diagnose(ctx)
     incident.findings = findings
