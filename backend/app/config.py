@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     azure_openai_api_key: str | None = None
     azure_openai_api_version: str = "2024-06-01"
     azure_openai_deployment: str | None = None  # e.g. "gpt-4o"
+    azure_openai_embedding_deployment: str | None = None  # e.g. "text-embedding-ada-002"
 
     # --- Google Gemini (failover LLM) ---
     gemini_api_key: str | None = None
@@ -96,6 +97,19 @@ class Settings(BaseSettings):
     @property
     def neo4j_enabled(self) -> bool:
         return bool(self.neo4j_uri and self.neo4j_password)
+
+    @property
+    def embeddings_enabled(self) -> bool:
+        return bool(
+            self.azure_openai_endpoint
+            and self.azure_openai_api_key
+            and self.azure_openai_embedding_deployment
+        )
+
+    @property
+    def rag_enabled(self) -> bool:
+        # Retrieval-augmented memory needs both embeddings and a vector store.
+        return self.embeddings_enabled and self.db_persist_enabled
 
     @property
     def persistence_enabled(self) -> bool:

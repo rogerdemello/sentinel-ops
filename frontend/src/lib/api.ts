@@ -99,4 +99,9 @@ export const api = {
 
   audit: (limit = 100) =>
     client.get<{ audit: AuditEntry[] }>(`/api/audit?limit=${limit}`).then((r) => r.data.audit),
+
+  copilot: (question: string) =>
+    client.post<{ answer: string }>("/api/copilot", { question }).then((r) => r.data.answer),
+
+  evalReport: () => client.get<any>("/api/eval/report").then((r) => r.data),
 };

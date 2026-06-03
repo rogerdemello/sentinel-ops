@@ -18,6 +18,7 @@ from app.models import (
     IncidentStatus,
     RemediationStatus,
 )
+from app.memory.store import remember
 from app.notify.notifier import get_notifier
 from app.remediation.executor import get_executor
 from app.telemetry.scenario_manager import get_scenario_manager
@@ -92,6 +93,7 @@ def approve_and_execute(
     repo.clear_predictions_for(incident.service_id)
     repo.upsert_incident(incident)
     get_notifier().incident_resolved(incident)
+    remember(incident)  # store in RAG memory for future similar-incident recall
     return incident
 
 

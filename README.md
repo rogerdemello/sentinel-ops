@@ -146,6 +146,21 @@ configured and falls back safely otherwise — so the platform always runs.
 | **WebSocket live push** | always on (`/ws/stream`) | REST polling |
 | **API auth + tenancy** | `API_KEY` (+ `X-Tenant-Id`) | open |
 | **Autonomous self-healing** | sidebar toggle / `AUTO_REMEDIATE=true` | manual approval |
+| **RAG incident memory** | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` + `DATABASE_URL` (pgvector) | disabled |
+| **NL Ops Copilot** | LLM configured (`/api/copilot`, dashboard *Ops Copilot*) | state summary |
+| **Evaluation harness** | `python scripts/evaluate.py` → `/api/eval/report` | — |
+
+### Measured performance (offline eval, `scripts/evaluate.py`)
+
+Against the five injected scenarios with a clean-baseline control:
+
+```
+recall 1.00 · precision 1.00 · 0 false positives
+early-warning 80% (predicted before breach) · mean lead time 5.6 min
+```
+
+RAG: resolved incidents are embedded (ada-002) into pgvector; new incidents recall
+the most similar past cases (e.g. 0.87 cosine) to ground the RCA.
 
 ## Deploy
 

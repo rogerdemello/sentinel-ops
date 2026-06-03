@@ -11,6 +11,7 @@ export default function Overview() {
   const { data: predictions } = usePoll(api.predictions, 2000);
   const { data: events } = usePoll(() => api.events(12), 2500);
   const { data: kpi } = usePoll(api.metricsSummary, 2500);
+  const { data: evalReport } = usePoll(api.evalReport, 10000);
 
   const active = (incidents ?? []).filter((i) => i.status !== "resolved");
   const topPred = (predictions ?? [])[0];
@@ -48,6 +49,17 @@ export default function Overview() {
         />
         <Stat label="Revenue Protected" value={fmtMoney(kpi?.revenue_protected ?? 0)} sub="resolved incidents" />
       </div>
+
+      {evalReport?.available && (
+        <Card title="Model Performance (offline evaluation)" className="mb-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Stat label="Recall" value={`${(evalReport.recall * 100).toFixed(0)}%`} sub={`${evalReport.detected}/${evalReport.scenarios} detected`} />
+            <Stat label="Precision" value={`${(evalReport.precision * 100).toFixed(0)}%`} sub={`${evalReport.false_positives_baseline} false positives`} />
+            <Stat label="Early Warning" value={`${(evalReport.early_warning_rate * 100).toFixed(0)}%`} sub="before breach" />
+            <Stat label="Mean Lead Time" value={evalReport.mean_lead_time_min != null ? `${evalReport.mean_lead_time_min} min` : "—"} />
+          </div>
+        </Card>
+      )}
 
       <Card title="Live Signals" className="mb-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

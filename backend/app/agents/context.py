@@ -22,6 +22,14 @@ class DiagnosisContext:
     lead_metric: str | None = None  # metric whose trend triggered the prediction
     scenario_hint: str | None = None  # ground-truth hint when known (synthetic)
     recommended_actions: list[str] = field(default_factory=list)
+    similar_incidents: list[str] = field(default_factory=list)  # RAG recall
+
+    def similar_block(self) -> str:
+        if not self.similar_incidents:
+            return ""
+        return "Similar past incidents (most relevant first):\n" + "\n".join(
+            f"  - {s}" for s in self.similar_incidents
+        )
 
     def metrics_table(self, focus_metrics: list[str] | None = None) -> str:
         lines = []

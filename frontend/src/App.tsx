@@ -6,6 +6,7 @@ import Incidents from "./pages/Incidents";
 import GraphView from "./pages/GraphView";
 import Impact from "./pages/Impact";
 import Audit from "./pages/Audit";
+import Copilot from "./pages/Copilot";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/graph" element={<GraphView />} />
         <Route path="/impact" element={<Impact />} />
         <Route path="/audit" element={<Audit />} />
+        <Route path="/copilot" element={<Copilot />} />
       </Routes>
     </Layout>
   );
