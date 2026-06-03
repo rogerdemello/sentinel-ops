@@ -50,15 +50,36 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    @app.middleware("http")
+    async def api_key_auth(request, call_next):
+        """Optional API-key gate. Active only when API_KEY is configured; /health
+        and docs stay open. Also stashes X-Tenant-Id for tenant-scoped features."""
+        key = get_settings().api_key
+        path = request.url.path
+        request.state.tenant_id = request.headers.get("X-Tenant-Id", "default")
+        if key and path.startswith("/api"):
+            provided = request.headers.get("X-API-Key") or (
+                request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+            )
+            if provided != key:
+                from fastapi.responses import JSONResponse
+
+                return JSONResponse(status_code=401, content={"detail": "unauthorized"})
+        return await call_next(request)
+
     from app.api.routes import (
+        audit,
         graph,
         health,
         incidents,
+        ingest,
         metrics,
         policy,
+        postmortem,
         predictions,
         remediation,
         scenarios,
+        stream,
         telemetry,
     )
 
@@ -71,6 +92,10 @@ def create_app() -> FastAPI:
     app.include_router(remediation.router)
     app.include_router(policy.router)
     app.include_router(metrics.router)
+    app.include_router(ingest.router)
+    app.include_router(audit.router)
+    app.include_router(postmortem.router)
+    app.include_router(stream.router)
     return app
 
 

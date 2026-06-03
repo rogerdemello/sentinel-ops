@@ -25,6 +25,43 @@ function AgentCard({ f }: { f: Incident["findings"][number] }) {
   );
 }
 
+function PostmortemCard({ incident }: { incident: Incident }) {
+  const [text, setText] = useState<string | null>(incident.postmortem ?? null);
+  const [busy, setBusy] = useState(false);
+  const generate = async () => {
+    setBusy(true);
+    try {
+      setText(await api.postmortem(incident.id));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card
+      title="AI Postmortem"
+      right={
+        <button
+          onClick={generate}
+          disabled={busy}
+          className="rounded-md bg-accent/20 px-2 py-1 text-xs text-accent hover:bg-accent/30 disabled:opacity-50"
+        >
+          {busy ? "Generating…" : text ? "Regenerate" : "Generate"}
+        </button>
+      }
+    >
+      {text ? (
+        <pre className="max-h-96 overflow-auto whitespace-pre-wrap font-mono text-xs text-slate-300">
+          {text}
+        </pre>
+      ) : (
+        <div className="text-sm text-slate-500">
+          Generate a blameless postmortem from the RCA, timeline, and impact.
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function Detail({ incident }: { incident: Incident }) {
   const [busy, setBusy] = useState(false);
   const plan = incident.plan;
@@ -171,6 +208,8 @@ function Detail({ incident }: { incident: Incident }) {
           </ol>
         </Card>
       )}
+
+      <PostmortemCard incident={incident} />
     </div>
   );
 }

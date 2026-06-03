@@ -15,6 +15,7 @@ from functools import lru_cache
 from app.config import get_settings
 from app.db import supabase_client as sb
 from app.models import (
+    AuditEntry,
     Dependency,
     Incident,
     Prediction,
@@ -38,6 +39,7 @@ class Repository:
         self.events: deque[TelemetryEvent] = deque(maxlen=_EVENTS_MAXLEN)
         self.predictions: dict[str, Prediction] = {}
         self.incidents: dict[str, Incident] = {}
+        self.audit: deque[AuditEntry] = deque(maxlen=2000)
 
     # --- topology -----------------------------------------------------------
     def add_service(self, service: Service) -> Service:
@@ -129,6 +131,14 @@ class Repository:
         return sorted(
             self.incidents.values(), key=lambda i: i.created_at, reverse=True
         )
+
+    # --- audit ------------------------------------------------------------
+    def record_audit(self, entry: AuditEntry) -> None:
+        self.audit.append(entry)
+        sb.insert("audit_log", entry.model_dump(mode="json"))
+
+    def list_audit(self, limit: int = 100) -> list[AuditEntry]:
+        return list(self.audit)[-limit:][::-1]
 
     def active_incident_for_scenario(self, scenario_key: str) -> Incident | None:
         for inc in self.incidents.values():

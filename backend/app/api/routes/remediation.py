@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 
 from app.clock import get_clock
 from app.remediation import workflow
@@ -11,9 +11,11 @@ router = APIRouter(prefix="/api/remediation", tags=["remediation"])
 
 
 @router.post("/{incident_id}/approve")
-def approve(incident_id: str) -> dict:
+def approve(incident_id: str, x_role: str = Header(default="operator")) -> dict:
     try:
-        inc = workflow.approve_and_execute(incident_id, get_clock().now())
+        inc = workflow.approve_and_execute(
+            incident_id, get_clock().now(), actor="human", role=x_role
+        )
     except workflow.WorkflowError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"incident": inc.model_dump(mode="json")}

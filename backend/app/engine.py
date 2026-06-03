@@ -28,7 +28,8 @@ from app.models import (
     Prediction,
     Severity,
 )
-from app.forecasting.predictor import forecast_breach
+from app.notify.notifier import get_notifier
+from app.forecasting.forecaster import get_forecaster
 from app.policy import get_policy
 from app.remediation.workflow import WorkflowError, approve_and_execute
 from app.telemetry.scenario_manager import get_scenario_manager
@@ -76,7 +77,7 @@ def run_cycle(now: float) -> None:
             series = repo.series(service.id, metric, limit=60)
             if len(series) < 8:
                 continue
-            fc = forecast_breach([(p.ts, p.value) for p in series], threshold)
+            fc = get_forecaster().forecast([(p.ts, p.value) for p in series], threshold)
             if fc is None or fc.probability < 0.3:
                 continue
             pred = Prediction(
@@ -209,11 +210,12 @@ def _open_incident(service_id: str, pred: Prediction, now: float) -> None:
 
     repo.upsert_incident(incident)
     logger.info("Opened incident %s for %s (p=%.2f)", incident.id, service_id, pred.probability)
+    get_notifier().incident_opened(incident)
 
     # --- autonomous self-healing (policy-gated) ---
     if get_policy().allows_auto(incident.plan.max_risk):
         try:
-            approve_and_execute(incident.id, now, actor="autonomous")
+            approve_and_execute(incident.id, now, actor="autonomous", role="system")
             logger.info("Auto-healed incident %s (risk<=policy)", incident.id)
         except WorkflowError as exc:  # pragma: no cover - defensive
             logger.warning("Auto-heal failed for %s: %s", incident.id, exc)

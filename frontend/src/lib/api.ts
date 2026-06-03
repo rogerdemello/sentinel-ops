@@ -1,5 +1,6 @@
 import axios from "axios";
 import type {
+  AuditEntry,
   GraphData,
   Incident,
   MetricsSummary,
@@ -90,4 +91,12 @@ export const api = {
 
   setPolicy: (body: Partial<Policy>) =>
     client.put<Policy>("/api/policy", body).then((r) => r.data),
+
+  postmortem: (incidentId: string) =>
+    client
+      .post<{ postmortem: string }>(`/api/postmortem/${incidentId}`)
+      .then((r) => r.data.postmortem),
+
+  audit: (limit = 100) =>
+    client.get<{ audit: AuditEntry[] }>(`/api/audit?limit=${limit}`).then((r) => r.data.audit),
 };

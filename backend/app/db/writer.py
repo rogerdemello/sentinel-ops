@@ -42,7 +42,7 @@ _SCHEMA: dict[str, tuple[list[str], list[str], set[str]]] = {
         ["id", "service_id", "incident_type", "status", "severity", "title",
          "scenario_key", "probability", "eta_seconds", "lead_metric",
          "lead_threshold", "root_cause", "diagnosis", "findings", "impact",
-         "plan", "timeline", "auto_remediated", "created_at", "updated_at"],
+         "plan", "timeline", "auto_remediated", "postmortem", "created_at", "updated_at"],
         {"findings", "impact", "plan", "timeline"},
     ),
     "telemetry_events": (
@@ -53,6 +53,12 @@ _SCHEMA: dict[str, tuple[list[str], list[str], set[str]]] = {
     "telemetry_metrics": (
         ["id"],
         ["id", "service_id", "name", "value", "ts"],
+        set(),
+    ),
+    "audit_log": (
+        ["id"],
+        ["id", "at", "actor", "role", "incident_id", "action_kind",
+         "target_service_id", "executor", "result_status", "detail"],
         set(),
     ),
 }

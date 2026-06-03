@@ -1,0 +1,27 @@
+# Render.com blueprint (Docker runtime). Push to GitHub, then "New Blueprint".
+# NOTE: set the frontend's API origin to the backend's public URL after first deploy
+# (or front both with a single reverse proxy). Secrets go in the Render dashboard.
+services:
+  - type: web
+    name: sentinelops-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: SIM_AUTOSTART
+        value: "true"
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_DEPLOYMENT
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+
+  - type: web
+    name: sentinelops-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend

@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     sim_minutes_per_tick: float = 1.0  # simulated minutes advanced per tick
     sim_autostart: bool = True
 
+    # --- Telemetry source ---
+    telemetry_source: Literal["synthetic", "prometheus"] = "synthetic"
+    prometheus_url: str | None = None
+    prometheus_queries: str | None = None  # JSON list of {query, service_id, metric}
+
     # --- Supabase (optional) ---
     supabase_url: str | None = None
     supabase_service_key: str | None = None
@@ -38,6 +43,11 @@ class Settings(BaseSettings):
     database_url: str | None = None
     # Persist high-volume raw telemetry metrics to the DB (off by default — chatty).
     persist_telemetry: bool = False
+
+    # --- Neo4j graph backend (optional; NetworkX used when unset) ---
+    neo4j_uri: str | None = None
+    neo4j_user: str = "neo4j"
+    neo4j_password: str | None = None
 
     # --- Azure OpenAI (primary LLM) ---
     azure_openai_endpoint: str | None = None
@@ -49,9 +59,25 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-1.5-pro"
 
+    # --- Forecasting backend ---
+    forecaster: Literal["trend", "holtwinters", "prophet"] = "trend"
+
     # --- LLM routing ---
     llm_primary: Literal["azure", "gemini"] = "azure"
     llm_max_retries: int = 2
+
+    # --- Remediation execution ---
+    remediation_executor: Literal["simulated", "kubernetes", "webhook"] = "simulated"
+    remediation_webhook_url: str | None = None
+    rbac_enabled: bool = False  # when true, executing requires an allowed role
+
+    # --- Alerting integrations (optional) ---
+    slack_webhook_url: str | None = None
+    pagerduty_routing_key: str | None = None
+    alert_webhook_url: str | None = None
+
+    # --- API auth / multi-tenancy (optional) ---
+    api_key: str | None = None  # when set, /api/* requires it (Bearer or X-API-Key)
 
     # --- Autonomous remediation (self-healing) ---
     # When enabled, the engine auto-executes remediation plans whose maximum action
@@ -66,6 +92,10 @@ class Settings(BaseSettings):
     @property
     def db_persist_enabled(self) -> bool:
         return bool(self.database_url)
+
+    @property
+    def neo4j_enabled(self) -> bool:
+        return bool(self.neo4j_uri and self.neo4j_password)
 
     @property
     def persistence_enabled(self) -> bool:

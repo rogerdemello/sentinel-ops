@@ -14,10 +14,8 @@ from app.clock import get_clock
 from app.config import get_settings
 from app.db.repository import get_repository
 from app.engine import run_cycle
-from app.telemetry.generator import generate_value, metrics_for
 from app.telemetry.scenario_manager import get_scenario_manager
-from app.telemetry.schema import MetricPoint, TelemetryEvent
-from app.telemetry.scenarios import Scenario
+from app.telemetry.sources.factory import get_source
 
 logger = logging.getLogger(__name__)
 
@@ -60,43 +58,18 @@ class Simulator:
 
     def tick(self) -> None:
         settings = get_settings()
-        clock = get_clock()
         repo = get_repository()
-        sm = get_scenario_manager()
 
-        now = clock.advance(settings.sim_minutes_per_tick * 60.0)
-        active = sm.active(now)
+        now = get_clock().advance(settings.sim_minutes_per_tick * 60.0)
 
-        for service in repo.list_services():
-            for metric in metrics_for(service):
-                value = generate_value(service, metric, now, active)
-                repo.record_metric(
-                    MetricPoint(service_id=service.id, name=metric, value=value, ts=now)
-                )
+        metrics, events = get_source().collect(now)
+        for m in metrics:
+            repo.record_metric(m)
+        for e in events:
+            repo.record_event(e)
 
-        self._emit_scenario_events(now)
         run_cycle(now)
         self.ticks += 1
-
-    def _emit_scenario_events(self, now: float) -> None:
-        repo = get_repository()
-        for rec in get_scenario_manager().active_records():
-            elapsed_min = (now - rec.triggered_at) / 60.0
-            scenario: Scenario = rec.scenario
-            for idx, ev in enumerate(scenario.events):
-                if idx in rec.emitted_event_ids:
-                    continue
-                if elapsed_min >= ev.at_min:
-                    repo.record_event(
-                        TelemetryEvent(
-                            service_id=ev.service_id,
-                            type=ev.type,
-                            severity=ev.severity,
-                            message=ev.message,
-                            ts=now,
-                        )
-                    )
-                    rec.emitted_event_ids.add(idx)
 
     def trigger(self, key: str):
         now = get_clock().now()

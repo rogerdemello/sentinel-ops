@@ -1,0 +1,25 @@
+# Fly.io config for the SentinelOps backend.
+#   fly launch --copy-config --no-deploy   (from ./backend, with this file)
+#   fly secrets set AZURE_OPENAI_API_KEY=... DATABASE_URL=...
+#   fly deploy
+app = "sentinelops-backend"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[http_service.checks]]
+  method = "GET"
+  path = "/health"
+  interval = "15s"
+  timeout = "3s"
+
+[env]
+  SIM_AUTOSTART = "true"

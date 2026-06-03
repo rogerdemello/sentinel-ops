@@ -137,6 +137,19 @@ class TimelineEntry(BaseModel):
     message: str
 
 
+class AuditEntry(BaseModel):
+    id: str = Field(default_factory=new_id)
+    at: float
+    actor: str  # "human" | "autonomous"
+    role: str  # operator | admin | system
+    incident_id: str
+    action_kind: str
+    target_service_id: str
+    executor: str
+    result_status: str  # simulated | ok | failed
+    detail: str
+
+
 class Incident(BaseModel):
     id: str = Field(default_factory=new_id)
     service_id: str
@@ -156,6 +169,7 @@ class Incident(BaseModel):
     plan: RemediationPlan | None = None
     timeline: list[TimelineEntry] = Field(default_factory=list)
     auto_remediated: bool = False
+    postmortem: str | None = None
     created_at: float = 0.0
     updated_at: float = 0.0
 
