@@ -71,9 +71,24 @@ create table if not exists incidents (
     plan           jsonb,
     timeline       jsonb not null default '[]'::jsonb,
     auto_remediated boolean not null default false,
+    postmortem     text,
     created_at     double precision not null default 0,
     updated_at     double precision not null default 0
 );
+
+create table if not exists audit_log (
+    id                text primary key,
+    at                double precision not null,
+    actor             text not null,
+    role              text not null,
+    incident_id       text not null,
+    action_kind       text not null,
+    target_service_id text not null,
+    executor          text not null,
+    result_status     text not null,
+    detail            text not null default ''
+);
+create index if not exists idx_audit_at on audit_log (at);
 
 -- Enable Realtime so the dashboard can subscribe to live changes.
 do $$

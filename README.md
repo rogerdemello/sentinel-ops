@@ -123,13 +123,40 @@ full engine → incident → approval/recovery workflow.
 
 ## Safety
 
-v1 remediation is **recommend-only with mandatory human approval**, and execution is
-**simulated** (it clears the synthetic scenario; it never touches real infrastructure).
-This boundary lives in `app/remediation/workflow.py` — the seam where a real,
-RBAC-gated executor would later plug in.
+By default remediation execution is **simulated** (clears the synthetic scenario;
+touches no real infra) and requires **human approval**. Autonomous self-healing and
+real executors (Kubernetes/webhook) are opt-in and **RBAC-gated**, and every executed
+action is recorded in the **audit log** (`app/remediation/{workflow,executor}.py`).
 
-## Roadmap (behind existing interfaces)
+## Advanced capabilities (all behind config-selected interfaces)
 
-Real integrations (Prometheus/Loki/OTel/K8s/cloud) · Neo4j + GNN graph backend ·
-deep forecasting (TFT/LSTM/Prophet) · real remediation execution with audit/RBAC ·
-multi-tenant auth · alerting (PagerDuty/Slack).
+Every item below ships as real code that activates when its backing service is
+configured and falls back safely otherwise — so the platform always runs.
+
+| Capability | How to enable | Fallback |
+|---|---|---|
+| **Real LLM RCA + postmortems** | `AZURE_OPENAI_*` / `GEMINI_API_KEY` | heuristic |
+| **Telemetry ingestion** | `TELEMETRY_SOURCE=prometheus` + `PROMETHEUS_URL`, or `POST /api/ingest/metrics` | synthetic |
+| **Deep forecasting** | `FORECASTER=holtwinters` (or `prophet`) | trend extrapolation |
+| **Neo4j graph backend** | `NEO4J_URI` + `NEO4J_PASSWORD` | in-memory NetworkX |
+| **Real remediation** | `REMEDIATION_EXECUTOR=kubernetes\|webhook` + `RBAC_ENABLED=true` | simulated |
+| **Audit log** | always on (`GET /api/audit`, dashboard *Audit Log*) | — |
+| **Alerting** | `SLACK_WEBHOOK_URL` / `PAGERDUTY_ROUTING_KEY` / `ALERT_WEBHOOK_URL` | no-op |
+| **AI postmortems** | always on (`POST /api/postmortem/{id}`) | heuristic |
+| **WebSocket live push** | always on (`/ws/stream`) | REST polling |
+| **API auth + tenancy** | `API_KEY` (+ `X-Tenant-Id`) | open |
+| **Autonomous self-healing** | sidebar toggle / `AUTO_REMEDIATE=true` | manual approval |
+
+## Deploy
+
+```bash
+docker compose up --build      # backend :8000 + frontend (nginx) :8080
+```
+
+Cloud blueprints: `deploy/render.yaml` (Render) and `deploy/fly.toml` (Fly.io). Set
+secrets in the platform dashboard; point the frontend at the backend's public URL.
+
+## Roadmap
+
+Graph Neural Network failure-propagation learning · full Temporal Fusion Transformer
+training pipeline · Supabase Auth UI + per-tenant RLS · Loki/OTel trace ingestion.

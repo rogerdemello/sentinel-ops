@@ -1,0 +1,20 @@
+# SentinelOps AI — full stack. `docker compose up --build`
+# Frontend (nginx) on :8080 proxies /api + /ws to the backend on :8000.
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      CORS_ORIGINS: '["http://localhost:8080"]'
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

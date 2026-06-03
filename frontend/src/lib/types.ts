@@ -92,8 +92,22 @@ export interface Incident {
   plan?: RemediationPlan | null;
   timeline: TimelineEntry[];
   auto_remediated: boolean;
+  postmortem?: string | null;
   created_at: number;
   updated_at: number;
+}
+
+export interface AuditEntry {
+  id: string;
+  at: number;
+  actor: string;
+  role: string;
+  incident_id: string;
+  action_kind: string;
+  target_service_id: string;
+  executor: string;
+  result_status: string;
+  detail: string;
 }
 
 export interface MetricsSummary {

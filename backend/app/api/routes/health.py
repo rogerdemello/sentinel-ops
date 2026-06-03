@@ -26,5 +26,15 @@ def health() -> dict:
             "azure_openai": settings.azure_enabled,
             "gemini": settings.gemini_enabled,
             "llm": settings.any_llm_enabled,
+            "neo4j": settings.neo4j_enabled,
+            "telemetry_source": settings.telemetry_source,
+            "forecaster": settings.forecaster,
+            "remediation_executor": settings.remediation_executor,
+            "alerting": bool(
+                settings.slack_webhook_url
+                or settings.pagerduty_routing_key
+                or settings.alert_webhook_url
+            ),
+            "auth": bool(settings.api_key),
         },
     }

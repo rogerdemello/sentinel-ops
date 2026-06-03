@@ -11,6 +11,7 @@ const NAV = [
   { to: "/incidents", label: "Incidents" },
   { to: "/graph", label: "Dependency Graph" },
   { to: "/impact", label: "Executive Impact" },
+  { to: "/audit", label: "Audit Log" },
 ];
 
 export default function Layout({ children }: { children: ReactNode }) {
