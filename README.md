@@ -170,8 +170,9 @@ the most similar past cases (e.g. 0.87 cosine) to ground the RCA.
 docker compose up --build      # backend :8000 + frontend (nginx) :8080
 ```
 
-Cloud blueprints: `deploy/render.yaml` (Render) and `deploy/fly.toml` (Fly.io). Set
-secrets in the platform dashboard; point the frontend at the backend's public URL.
+Cloud blueprints: `render.yaml` at the repo root (Render — deploys backend + frontend
+together; Render only detects the Blueprint at the root) and `deploy/fly.toml` (Fly.io).
+Set secrets in the platform dashboard; the frontend proxies `/api` + `/ws` to the backend.
 
 ## Roadmap
 
