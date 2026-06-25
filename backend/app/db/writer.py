@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+import time
 from typing import Any
 
 from app.config import get_settings
@@ -64,6 +65,9 @@ _SCHEMA: dict[str, tuple[list[str], list[str], set[str]]] = {
 }
 
 
+_COOLDOWN_SECONDS = 30.0  # when the DB is unreachable, pause writes this long
+
+
 class _Writer:
     def __init__(self) -> None:
         self._q: queue.Queue[tuple[str, str, dict] | None] = queue.Queue(maxsize=10000)
@@ -71,6 +75,10 @@ class _Writer:
         self._conn = None
         self._started = False
         self._lock = threading.Lock()
+        self.failures = 0  # rows dropped because the DB was unreachable
+        self.last_error: str | None = None
+        self._degraded = False  # circuit-breaker state (DB currently considered down)
+        self._cooldown_until = 0.0  # monotonic time until which writes are paused
 
     def start(self) -> None:
         with self._lock:
@@ -81,6 +89,15 @@ class _Writer:
             self._thread.start()
             logger.info("Postgres write-through worker started")
 
+    def flush(self, timeout: float = 5.0) -> None:
+        """Drain remaining queued writes and stop the worker — called on graceful
+        shutdown so in-flight mirror writes aren't lost when the process exits."""
+        if not self._started or self._thread is None:
+            return
+        self._q.put(None)  # sentinel: process everything already queued, then stop
+        self._thread.join(timeout)
+        self._started = False
+
     def enqueue(self, op: str, table: str, row: dict[str, Any]) -> None:
         if table not in _SCHEMA:
             return
@@ -89,7 +106,8 @@ class _Writer:
         try:
             self._q.put_nowait((op, table, row))
         except queue.Full:  # pragma: no cover - backpressure safety
-            logger.debug("write queue full; dropping %s on %s", op, table)
+            self.failures += 1
+            logger.warning("write queue full; dropping %s on %s", op, table)
 
     # -- worker --
     def _connect(self):
@@ -103,11 +121,30 @@ class _Writer:
             if item is None:
                 break
             op, table, row = item
+            # Circuit breaker: while the DB is down, drop writes for a cooldown window
+            # instead of hammering an unresolvable host and flooding the logs. The
+            # in-memory store remains the source of truth, so dropped mirrors are safe.
+            if self._degraded and time.monotonic() < self._cooldown_until:
+                self.failures += 1
+                continue
             try:
                 self._execute(op, table, row)
+                if self._degraded:
+                    self._degraded = False
+                    logger.info("Postgres write-through recovered")
             except Exception as exc:  # noqa: BLE001 - best effort
-                logger.debug("write-through %s %s failed: %s", op, table, exc)
                 self._conn = None  # force reconnect next time
+                self.last_error = str(exc)
+                self.failures += 1
+                self._cooldown_until = time.monotonic() + _COOLDOWN_SECONDS
+                if not self._degraded:
+                    self._degraded = True
+                    logger.warning(
+                        "Postgres write-through failing (%s); pausing mirror writes for "
+                        "%.0fs (in-memory store unaffected). Further errors suppressed "
+                        "until recovery.",
+                        exc, _COOLDOWN_SECONDS,
+                    )
 
     def _execute(self, op: str, table: str, row: dict[str, Any]) -> None:
         from psycopg.types.json import Json

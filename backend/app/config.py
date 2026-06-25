@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     sim_autostart: bool = True
 
     # --- Telemetry source ---
-    telemetry_source: Literal["synthetic", "prometheus"] = "synthetic"
+    # "system" = real host metrics via psutil (default), "synthetic" = scripted
+    # demo generator, "prometheus" = scrape a real Prometheus server.
+    telemetry_source: Literal["system", "synthetic", "prometheus"] = "system"
     prometheus_url: str | None = None
     prometheus_queries: str | None = None  # JSON list of {query, service_id, metric}
 
@@ -66,6 +68,8 @@ class Settings(BaseSettings):
     # --- LLM routing ---
     llm_primary: Literal["azure", "gemini"] = "azure"
     llm_max_retries: int = 2
+    # Per-call timeout (seconds) so a slow/hung provider can't stall an engine tick.
+    llm_timeout_seconds: float = 20.0
 
     # --- Remediation execution ---
     remediation_executor: Literal["simulated", "kubernetes", "webhook"] = "simulated"
@@ -79,6 +83,12 @@ class Settings(BaseSettings):
 
     # --- API auth / multi-tenancy (optional) ---
     api_key: str | None = None  # when set, /api/* requires it (Bearer or X-API-Key)
+    # Separate key that grants the "admin" role. The role used for RBAC is derived
+    # from WHICH key authenticated the request — never from a client-supplied header.
+    admin_api_key: str | None = None
+    # Role assigned when API auth is disabled (no api_key) — i.e. local/trusted dev.
+    # Kept at least-privilege "operator"; raise deliberately if you trust the network.
+    default_role: Literal["viewer", "operator", "admin"] = "operator"
 
     # --- Autonomous remediation (self-healing) ---
     # When enabled, the engine auto-executes remediation plans whose maximum action

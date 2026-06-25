@@ -39,9 +39,9 @@ def _require_plan(incident: Incident):
 
 
 def approve_and_execute(
-    incident_id: str, now: float, actor: str = "human", role: str = "operator"
+    incident_id: str, now: float, actor: str = "human", role: str = "operator", repo=None
 ) -> Incident:
-    repo = get_repository()
+    repo = repo or get_repository()
     incident = repo.get_incident(incident_id)
     if incident is None:
         raise WorkflowError(f"Unknown incident {incident_id}")
@@ -91,14 +91,17 @@ def approve_and_execute(
     incident.log(now, "resolved", "Remediation executed (simulated); metrics recovering.")
     incident.updated_at = now
     repo.clear_predictions_for(incident.service_id)
+    # Start a recovery cooldown so the engine doesn't immediately re-open the same
+    # service while its (often real) metric is still draining back to baseline.
+    repo.mark_resolved(incident.service_id, now)
     repo.upsert_incident(incident)
     get_notifier().incident_resolved(incident)
     remember(incident)  # store in RAG memory for future similar-incident recall
     return incident
 
 
-def reject(incident_id: str, now: float) -> Incident:
-    repo = get_repository()
+def reject(incident_id: str, now: float, repo=None) -> Incident:
+    repo = repo or get_repository()
     incident = repo.get_incident(incident_id)
     if incident is None:
         raise WorkflowError(f"Unknown incident {incident_id}")

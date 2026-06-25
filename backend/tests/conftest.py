@@ -14,6 +14,9 @@ for _k in (
     os.environ[_k] = ""
 os.environ["AUTO_REMEDIATE"] = "false"
 os.environ["PERSIST_TELEMETRY"] = "false"
+# Tests must be deterministic and host-independent — pin to the scripted source
+# (the default "system" source reads real, varying host metrics).
+os.environ["TELEMETRY_SOURCE"] = "synthetic"
 
 import pytest
 
@@ -23,14 +26,17 @@ from app.db.repository import get_repository
 from app.graph.service import get_graph
 from app.policy import get_policy
 from app.telemetry.scenario_manager import get_scenario_manager
+from app.telemetry.sources.factory import get_source
+
+_CACHED = (get_repository, get_clock, get_graph, get_scenario_manager, get_policy, get_source)
 
 
 @pytest.fixture(autouse=True)
 def _reset_state():
-    for fn in (get_repository, get_clock, get_graph, get_scenario_manager, get_policy):
+    for fn in _CACHED:
         fn.cache_clear()
     sim_mod._simulator = None
     yield
-    for fn in (get_repository, get_clock, get_graph, get_scenario_manager, get_policy):
+    for fn in _CACHED:
         fn.cache_clear()
     sim_mod._simulator = None

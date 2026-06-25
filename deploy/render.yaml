@@ -1,6 +1,23 @@
 # Render.com blueprint (Docker runtime). Push to GitHub, then "New Blueprint".
-# NOTE: set the frontend's API origin to the backend's public URL after first deploy
-# (or front both with a single reverse proxy). Secrets go in the Render dashboard.
+#
+# Wiring: the frontend nginx container proxies /api and /ws to BACKEND_ORIGIN,
+# which nginx envsubst's into proxy_pass at startup (default http://backend:8000
+# for docker-compose). On Render the two services are separate, so the frontend
+# must point at the backend's address.
+#
+# nginx's proxy_pass needs a full origin WITH scheme (http://host:port). Render's
+# `fromService` can inject the backend's internal host:port (property: hostport)
+# but cannot prepend the scheme, so we surface it as BACKEND_HOSTPORT for
+# reference and set BACKEND_ORIGIN explicitly to the full internal origin. Update
+# the value below (or in the Render dashboard) to match your backend service
+# name — Render's internal hostname is the service name; the container listens on
+# 8000. To instead route the browser straight to the backend's public URL, set
+# VITE_API_BASE to that https URL at build time and add it to the backend's
+# CORS_ORIGINS.
+#
+# The SPA itself uses relative requests (VITE_API_BASE left empty), so all
+# browser traffic goes through nginx and CORS stays simple. Secrets go in the
+# Render dashboard.
 services:
   - type: web
     name: sentinelops-backend
@@ -25,3 +42,19 @@ services:
     runtime: docker
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
+    envVars:
+      # Full origin (with scheme) nginx proxies /api and /ws to. The backend's
+      # internal hostname on Render is the service name; it listens on 8000.
+      - key: BACKEND_ORIGIN
+        value: http://sentinelops-backend:8000
+      # For reference: the backend service's resolved host:port, injected by
+      # Render. Handy if you prefer to template BACKEND_ORIGIN from it.
+      - key: BACKEND_HOSTPORT
+        fromService:
+          name: sentinelops-backend
+          type: web
+          property: hostport
+      # Built-in default keeps the SPA on same-origin relative API calls. Override
+      # to an absolute backend URL only if you front the API separately.
+      - key: VITE_API_BASE
+        value: ""

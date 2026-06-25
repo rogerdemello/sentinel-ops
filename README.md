@@ -8,10 +8,12 @@ reactive operations (*issue → alert → investigate → fix*) to autonomous op
 multi-agent root-cause analysis, estimates business/blast-radius impact, and proposes
 remediation that a human approves — at which point it self-heals (simulated in v1).
 
-> **v1 status:** a complete, working end-to-end loop on **synthetic telemetry**, built
-> as a production-grade foundation. Every heavy dependency sits behind an interface so it
-> can grow (NetworkX → Neo4j, statistical → deep-learning forecasting, synthetic → real
-> integrations, simulated → real remediation) without rewrites.
+> **Status:** a complete, working end-to-end loop driven by **real host telemetry**
+> (CPU / memory / disk / network sampled live via `psutil`) by default — load the
+> machine and it predicts real incidents. A deterministic synthetic generator and a
+> Prometheus scraper are selectable via `TELEMETRY_SOURCE`. Every heavy dependency sits
+> behind an interface so it can grow (NetworkX → Neo4j, statistical → deep-learning
+> forecasting, local → Prometheus/OTLP, simulated → real remediation) without rewrites.
 
 ---
 
@@ -34,7 +36,7 @@ Synthetic telemetry ─► Forecast + anomaly detection ─► Prediction (prob 
 | Layer | Tech | Notes |
 |-------|------|-------|
 | Backend | Python · **FastAPI** | `backend/app` |
-| Telemetry | Synthetic generator + injectable scenarios | `app/telemetry` |
+| Telemetry | **Real host metrics (`psutil`)** by default · synthetic / Prometheus sources · injectable scenarios | `app/telemetry` |
 | Forecasting | Trend extrapolation + `IsolationForest`/robust z-score | `app/forecasting` |
 | Graph | **NetworkX** behind `GraphStore` (Neo4j-ready) | `app/graph` |
 | RCA | Multi-agent + LLM router (**Azure OpenAI → Gemini failover**) | `app/agents` |

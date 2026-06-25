@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from app.db.repository import get_repository
+from app.api.deps import tenant_repo
+from app.db.repository import Repository
 from app.models import IncidentStatus
 
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 
 
 @router.get("/summary")
-def summary() -> dict:
-    repo = get_repository()
+def summary(repo: Repository = Depends(tenant_repo)) -> dict:
     incidents = repo.list_incidents()
     resolved = [i for i in incidents if i.status == IncidentStatus.resolved]
     active = [i for i in incidents if i.status != IncidentStatus.resolved]
