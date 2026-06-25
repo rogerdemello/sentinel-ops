@@ -37,7 +37,7 @@ def _supabase_write(method: str, table: str, row: dict[str, Any]) -> None:
     try:
         getattr(client.table(table), method)(row).execute()
     except Exception as exc:  # pragma: no cover - external
-        logger.debug("Supabase %s %s failed: %s", method, table, exc)
+        logger.warning("Supabase %s %s failed: %s", method, table, exc)
 
 
 def upsert(table: str, row: dict[str, Any]) -> None:

@@ -44,7 +44,8 @@ class LLMRouter:
         if not providers:
             raise LLMError("No LLM provider configured")
         last: Exception | None = None
-        retries = get_settings().llm_max_retries
+        # Always attempt each provider at least once, even if misconfigured to 0.
+        retries = max(1, get_settings().llm_max_retries)
         for provider in providers:
             for attempt in range(retries):
                 try:
@@ -80,7 +81,10 @@ def _parse_json(text: str) -> dict:
     except json.JSONDecodeError:
         start, end = text.find("{"), text.rfind("}")
         if 0 <= start < end:
-            return json.loads(text[start : end + 1])
+            try:
+                return json.loads(text[start : end + 1])
+            except json.JSONDecodeError as exc:
+                raise LLMError("LLM did not return valid JSON") from exc
         raise LLMError("LLM did not return valid JSON")
 
 

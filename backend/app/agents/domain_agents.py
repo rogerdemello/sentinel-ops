@@ -9,6 +9,7 @@ works fully offline.
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from app.agents.context import DiagnosisContext
 from app.agents.llm.base import LLMError
@@ -133,5 +134,13 @@ def run_agent(agent: str, ctx: DiagnosisContext) -> AgentFinding:
     return _heuristic_finding(agent, ctx)
 
 
+_AGENTS = ("infrastructure", "application", "security")
+
+
 def run_all_agents(ctx: DiagnosisContext) -> list[AgentFinding]:
-    return [run_agent(a, ctx) for a in ("infrastructure", "application", "security")]
+    # The three domain agents are independent. With an LLM configured each makes a
+    # network call, so run them concurrently — RCA returns in ~one call's time
+    # instead of three. ThreadPoolExecutor.map preserves order, and findings are
+    # still fully materialized before we return (callers see a synchronous result).
+    with ThreadPoolExecutor(max_workers=len(_AGENTS)) as ex:
+        return list(ex.map(lambda a: run_agent(a, ctx), _AGENTS))

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 export function usePoll<T>(fetcher: () => Promise<T>, intervalMs = 2000, deps: any[] = []) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const savedFetcher = useRef(fetcher);
   savedFetcher.current = fetcher;
 
@@ -18,6 +19,8 @@ export function usePoll<T>(fetcher: () => Promise<T>, intervalMs = 2000, deps: a
         }
       } catch (e: any) {
         if (alive) setError(e?.message ?? "request failed");
+      } finally {
+        if (alive) setLoading(false);
       }
     };
     run();
@@ -29,5 +32,5 @@ export function usePoll<T>(fetcher: () => Promise<T>, intervalMs = 2000, deps: a
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intervalMs, ...deps]);
 
-  return { data, error };
+  return { data, error, loading };
 }

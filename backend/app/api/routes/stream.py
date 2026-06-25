@@ -10,14 +10,33 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
 from app.clock import get_clock
+from app.config import get_settings
 from app.db.repository import get_repository
 from app.models import IncidentStatus
 
 router = APIRouter(tags=["stream"])
 logger = logging.getLogger(__name__)
+
+
+def _ws_authorized(ws: WebSocket) -> bool:
+    """Validate the stream client. The HTTP API-key middleware doesn't cover
+    ``/ws`` (not under ``/api``), so the socket authenticates itself. Browsers
+    can't set headers on a WebSocket, so a ``?token=`` query param is accepted in
+    addition to the ``X-API-Key`` / ``Authorization: Bearer`` headers. Auth is
+    enforced only when ``API_KEY`` is configured (parity with the REST gate)."""
+    settings = get_settings()
+    if not settings.api_key:
+        return True
+    provided = (
+        ws.query_params.get("token")
+        or ws.query_params.get("api_key")
+        or ws.headers.get("x-api-key")
+        or ws.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    )
+    return provided in {k for k in (settings.api_key, settings.admin_api_key) if k}
 
 
 def build_snapshot() -> dict:
@@ -53,6 +72,9 @@ def build_snapshot() -> dict:
 
 @router.websocket("/ws/stream")
 async def stream(ws: WebSocket) -> None:
+    if not _ws_authorized(ws):
+        await ws.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
     await ws.accept()
     try:
         while True:

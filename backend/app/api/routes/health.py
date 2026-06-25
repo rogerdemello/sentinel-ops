@@ -15,12 +15,19 @@ router = APIRouter(tags=["system"])
 def health() -> dict:
     settings = get_settings()
     repo = get_repository()
+    persistence = {"enabled": settings.db_persist_enabled}
+    if settings.db_persist_enabled:
+        from app.db.writer import get_writer
+
+        w = get_writer()
+        persistence.update(dropped_writes=w.failures, last_error=w.last_error)
     return {
         "status": "ok",
         "app": settings.app_name,
         "environment": settings.environment,
         "sim_time": get_clock().now(),
         "services": len(repo.list_services()),
+        "persistence": persistence,
         "capabilities": {
             "supabase": settings.persistence_enabled,
             "azure_openai": settings.azure_enabled,
