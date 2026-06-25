@@ -26,6 +26,10 @@ services:
     dockerContext: ./backend
     healthCheckPath: /health
     envVars:
+      # Pin the listen port so it matches the frontend's BACKEND_ORIGIN below and
+      # Render's health check / internal routing all agree on 8000.
+      - key: PORT
+        value: "8000"
       - key: SIM_AUTOSTART
         value: "true"
       - key: AZURE_OPENAI_ENDPOINT
