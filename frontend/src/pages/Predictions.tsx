@@ -16,7 +16,7 @@ export default function Predictions() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-100">Incident Predictions</h1>
+      <h1 className="mb-1 text-[1.75rem] font-medium text-slate-100">Incident Predictions</h1>
       <p className="mb-6 text-sm text-slate-400">
         Forecasting + anomaly detection projecting which services will breach, and when.
       </p>
@@ -45,7 +45,7 @@ export default function Predictions() {
               </div>
               <div className="w-40 text-right text-xs text-slate-500">
                 <div>metric: {p.metric}</div>
-                <div>now: {p.features.current?.toFixed(1)} / {p.features.threshold}</div>
+                <div>now: {p.features.current?.toFixed(1) ?? "—"} / {p.features.threshold ?? "—"}</div>
               </div>
             </div>
             <div className="mt-3">

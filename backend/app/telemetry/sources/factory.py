@@ -23,4 +23,14 @@ def get_source() -> TelemetrySource:
             return PrometheusSource()
         except Exception as exc:  # noqa: BLE001
             logger.warning("Prometheus source unavailable (%s); using synthetic", exc)
+        return SyntheticSource()
+    if kind == "system":
+        try:
+            from app.telemetry.sources.system import SystemSource
+
+            logger.info("Using real host telemetry source (psutil)")
+            return SystemSource()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("System source unavailable (%s); using synthetic", exc)
+        return SyntheticSource()
     return SyntheticSource()

@@ -1,12 +1,25 @@
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { usePoll } from "../lib/usePoll";
-import { Card, Stat, Badge, StatusDot, fmtMoney, fmtNum, etaText } from "../components/ui";
+import {
+  Card,
+  Stat,
+  Badge,
+  StatusDot,
+  StatSkeletons,
+  Banner,
+  fmtMoney,
+  fmtNum,
+  etaText,
+} from "../components/ui";
 import ScenarioBar from "../components/ScenarioBar";
 import MetricChart from "../components/MetricChart";
 
 export default function Overview() {
-  const { data: overview } = usePoll(api.overview, 2000);
+  const { data: overview, loading: overviewLoading, error: overviewError } = usePoll(
+    api.overview,
+    2000,
+  );
   const { data: incidents } = usePoll(api.incidents, 2000);
   const { data: predictions } = usePoll(api.predictions, 2000);
   const { data: events } = usePoll(() => api.events(12), 2500);
@@ -19,15 +32,40 @@ export default function Overview() {
   const total = (overview ?? []).length;
   const revenueAtRisk = active.reduce((sum, i) => sum + (i.impact?.revenue_at_risk ?? 0), 0);
 
+  // First paint before any data has arrived — show skeletons, not a wall of zeros.
+  const firstLoad = overviewLoading && overview === null && !overviewError;
+  // Live data is flowing but nothing is wrong yet — guide the user to the demo.
+  const nominal = !firstLoad && active.length === 0 && !topPred;
+
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-100">Live Operations</h1>
-      <p className="mb-6 text-sm text-slate-400">
-        Predict → Diagnose → Impact → Remediate, autonomously.
+      <h1 className="mb-1 text-[2rem] font-medium text-slate-100">Live Operations</h1>
+      <p className="mb-7 text-sm text-slate-400">
+        Predict&nbsp;→ Diagnose&nbsp;→ Impact&nbsp;→ Remediate, autonomously — driven by live
+        telemetry sampled from this host.
       </p>
+
+      {overviewError && (
+        <Banner kind="error">
+          Backend unreachable ({overviewError}). Start it with{" "}
+          <code className="font-mono">uvicorn app.main:app --port 8000</code> from{" "}
+          <code className="font-mono">backend/</code>.
+        </Banner>
+      )}
 
       <ScenarioBar />
 
+      {nominal && (
+        <Banner kind="info">
+          All services nominal — no incident predicted from current host metrics. Trigger a
+          scenario above (or put real load on the machine) to watch the full
+          predict → diagnose → impact → remediate loop.
+        </Banner>
+      )}
+
+      {firstLoad ? (
+        <StatSkeletons count={4} />
+      ) : (
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Active Incidents" value={active.length} sub={`${total - healthy}/${total} services degraded`} />
         <Stat
@@ -38,6 +76,7 @@ export default function Overview() {
         <Stat label="Revenue at Risk" value={fmtMoney(revenueAtRisk)} sub="across active incidents" />
         <Stat label="Services Healthy" value={`${healthy}/${total}`} />
       </div>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Outages Prevented" value={kpi?.outages_prevented ?? 0} sub="resolved before breach" />
@@ -53,9 +92,9 @@ export default function Overview() {
       {evalReport?.available && (
         <Card title="Model Performance (offline evaluation)" className="mb-6">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Stat label="Recall" value={`${(evalReport.recall * 100).toFixed(0)}%`} sub={`${evalReport.detected}/${evalReport.scenarios} detected`} />
-            <Stat label="Precision" value={`${(evalReport.precision * 100).toFixed(0)}%`} sub={`${evalReport.false_positives_baseline} false positives`} />
-            <Stat label="Early Warning" value={`${(evalReport.early_warning_rate * 100).toFixed(0)}%`} sub="before breach" />
+            <Stat label="Recall" value={`${((evalReport.recall ?? 0) * 100).toFixed(0)}%`} sub={`${evalReport.detected}/${evalReport.scenarios} detected`} />
+            <Stat label="Precision" value={`${((evalReport.precision ?? 0) * 100).toFixed(0)}%`} sub={`${evalReport.false_positives_baseline} false positives`} />
+            <Stat label="Early Warning" value={`${((evalReport.early_warning_rate ?? 0) * 100).toFixed(0)}%`} sub="before breach" />
             <Stat label="Mean Lead Time" value={evalReport.mean_lead_time_min != null ? `${evalReport.mean_lead_time_min} min` : "—"} />
           </div>
         </Card>

@@ -18,7 +18,6 @@ from app.clock import get_clock
 from app.config import get_settings
 from app.db.repository import get_repository
 from app.graph.service import get_graph
-from app.models import IncidentStatus
 from app.policy import get_policy
 from app.telemetry.scenario_manager import get_scenario_manager
 from app.telemetry.scenarios import SCENARIOS
@@ -44,7 +43,8 @@ def _run_scenario(key: str, max_ticks: int) -> dict:
 
     get_scenario_manager().trigger(key, get_clock().now())
 
-    detect_tick: int | None = None
+    detect_tick: int | None = None   # first incident on the EXPECTED root service
+    react_tick: int | None = None    # first incident opened on ANY service
     breach_tick: int | None = None
     for t in range(max_ticks):
         sim.tick()
@@ -52,25 +52,32 @@ def _run_scenario(key: str, max_ticks: int) -> dict:
             mp = repo.latest_metric(scenario.target_service_id, scenario.primary_metric)
             if mp and mp.value >= scenario.breach_threshold:
                 breach_tick = t
-        if detect_tick is None:
-            hit = [
-                i for i in repo.list_incidents()
-                if i.service_id == scenario.target_service_id
-            ]
-            if hit:
-                detect_tick = t
+        incs = repo.list_incidents()
+        if react_tick is None and incs:
+            react_tick = t
+        if detect_tick is None and any(
+            i.service_id == scenario.target_service_id for i in incs
+        ):
+            detect_tick = t
         if detect_tick is not None and breach_tick is not None:
             break
 
-    detected = detect_tick is not None
-    before_breach = detected and (breach_tick is None or detect_tick <= breach_tick)
+    # Honest attribution: "reacted" = opened any incident; "correct_root" = the
+    # opened incident is on the scenario's true root (not a downstream symptom).
+    # These genuinely differ when the engine mis-attributes — no longer tautological.
+    reacted = react_tick is not None
+    correct_root = detect_tick is not None
+    mis_attributed = reacted and not correct_root
+    before_breach = correct_root and (breach_tick is None or detect_tick <= breach_tick)
     lead_min = None
-    if detected and breach_tick is not None:
+    if correct_root and breach_tick is not None:
         lead_min = (breach_tick - detect_tick) * mins_per_tick
     return {
         "scenario": key,
-        "detected": detected,
-        "correct_root": detected,  # matched on target service id by construction
+        "detected": correct_root,  # "caught it on the right root"
+        "reacted": reacted,
+        "correct_root": correct_root,
+        "mis_attributed": mis_attributed,
         "detected_before_breach": before_breach,
         "lead_time_min": lead_min,
         "incidents_opened": len(repo.list_incidents()),
@@ -94,7 +101,9 @@ def evaluate(max_ticks: int = 60) -> dict:
     false_positives = _baseline_false_positives(max_ticks)
 
     total = len(runs)
-    detected = sum(r["detected"] for r in runs)
+    detected = sum(r["detected"] for r in runs)  # correct-root detections
+    reacted = sum(r["reacted"] for r in runs)
+    mis_attributed = sum(r["mis_attributed"] for r in runs)
     before = sum(r["detected_before_breach"] for r in runs)
     leads = [r["lead_time_min"] for r in runs if r["lead_time_min"] is not None]
     true_positives = detected
@@ -108,6 +117,10 @@ def evaluate(max_ticks: int = 60) -> dict:
     return {
         "scenarios": total,
         "detected": detected,
+        "reacted": reacted,
+        "mis_attributed": mis_attributed,
+        # Of the incidents the engine opened, how many landed on the true root.
+        "root_accuracy": round(detected / reacted, 3) if reacted else 1.0,
         "recall": round(recall, 3),
         "precision": round(precision, 3),
         "detected_before_breach": before,

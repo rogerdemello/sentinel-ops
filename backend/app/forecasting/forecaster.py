@@ -62,7 +62,7 @@ class HoltWintersForecaster(Forecaster):
             dt = 60.0
 
         if current >= threshold:
-            return Forecast(True, 0.99, 0, current, 0.0, threshold, 1.0)
+            return Forecast(True, 0.99, 0, current, 0.0, threshold, 1.0, already_breached=True)
 
         try:
             from statsmodels.tsa.holtwinters import Holt

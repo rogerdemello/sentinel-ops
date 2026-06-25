@@ -28,10 +28,14 @@ function AgentCard({ f }: { f: Incident["findings"][number] }) {
 function PostmortemCard({ incident }: { incident: Incident }) {
   const [text, setText] = useState<string | null>(incident.postmortem ?? null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const generate = async () => {
     setBusy(true);
+    setError(null);
     try {
       setText(await api.postmortem(incident.id));
+    } catch (e: any) {
+      setError(e?.message ?? "Postmortem generation failed.");
     } finally {
       setBusy(false);
     }
@@ -49,6 +53,7 @@ function PostmortemCard({ incident }: { incident: Incident }) {
         </button>
       }
     >
+      {error && <div className="mb-2 text-sm text-red-300">{error}</div>}
       {text ? (
         <pre className="max-h-96 overflow-auto whitespace-pre-wrap font-mono text-xs text-slate-300">
           {text}
@@ -64,13 +69,17 @@ function PostmortemCard({ incident }: { incident: Incident }) {
 
 function Detail({ incident }: { incident: Incident }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const plan = incident.plan;
   const proposed = plan && plan.status === "proposed";
 
   const act = async (kind: "approve" | "reject") => {
     setBusy(true);
+    setError(null);
     try {
       await (kind === "approve" ? api.approve(incident.id) : api.reject(incident.id));
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? e?.message ?? `${kind} failed.`);
     } finally {
       setBusy(false);
     }
@@ -171,6 +180,7 @@ function Detail({ incident }: { incident: Incident }) {
               <span className="self-center text-xs text-slate-500">
                 Human approval required · execution is simulated (no real infra touched)
               </span>
+              {error && <span className="self-center text-xs text-red-300">{error}</span>}
             </div>
           ) : (
             <div className="text-sm text-slate-400">
@@ -217,18 +227,42 @@ function Detail({ incident }: { incident: Incident }) {
 export default function Incidents() {
   const { data: incidents } = usePoll(api.incidents, 1500);
   const [params, setParams] = useSearchParams();
+  const [showResolved, setShowResolved] = useState(false);
   const selectedId = params.get("id");
-  const selected = (incidents ?? []).find((i) => i.id === selectedId) ?? (incidents ?? [])[0];
+
+  const all = incidents ?? [];
+  const active = all.filter((i) => i.status !== "resolved");
+  const resolvedCount = all.length - active.length;
+  const list = showResolved ? all : active;
+  // Prefer an explicit selection; otherwise the first incident in the visible list.
+  const selected = all.find((i) => i.id === selectedId) ?? list[0];
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-100">Incidents</h1>
+      <h1 className="mb-6 text-[1.75rem] font-medium text-slate-100">Incidents</h1>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
         <div className="space-y-2">
-          {(incidents ?? []).length === 0 && (
-            <div className="text-sm text-slate-500">No incidents yet. Trigger a scenario from Overview.</div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              {active.length} active
+            </span>
+            {resolvedCount > 0 && (
+              <button
+                onClick={() => setShowResolved((v) => !v)}
+                className="text-xs text-slate-400 underline-offset-2 hover:text-accent-deep hover:underline"
+              >
+                {showResolved ? "Hide" : "Show"} {resolvedCount} resolved
+              </button>
+            )}
+          </div>
+          {list.length === 0 && (
+            <div className="text-sm text-slate-500">
+              {all.length === 0
+                ? "No incidents yet. Trigger a scenario from Overview."
+                : "No active incidents — all clear."}
+            </div>
           )}
-          {(incidents ?? []).map((i) => (
+          {list.map((i) => (
             <button
               key={i.id}
               onClick={() => setParams({ id: i.id })}

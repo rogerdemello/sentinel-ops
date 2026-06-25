@@ -29,6 +29,7 @@ from app.models import (
     Severity,
 )
 from app.notify.notifier import get_notifier
+from app.forecasting.anomaly import robust_zscore
 from app.forecasting.forecaster import get_forecaster
 from app.memory.store import recall
 from app.policy import get_policy
@@ -51,12 +52,24 @@ _WATCHED: list[tuple[MetricName, float, IncidentType]] = [
 ]
 
 _CREATE_THRESHOLD = 0.6  # probability at/above which we open an incident
+# After an incident resolves, suppress re-opening the same service for this long
+# (sim-seconds). Simulated remediation can't actually lower a real host metric, so
+# without this the engine would heal→re-open in a tight loop (incident storm).
+_RESOLVE_COOLDOWN_SECONDS = 1800.0
+# Cap incidents opened per cycle so one tick never does unbounded blocking work
+# (each open runs multi-agent RCA — potentially live LLM calls). Deferred candidates
+# keep their predictions and are reconsidered on the next tick.
+_MAX_OPENS_PER_CYCLE = 3
 
 
-def run_cycle(now: float) -> None:
-    repo = get_repository()
+def run_cycle(now: float, repo=None) -> None:
+    """Run one analysis cycle against ``repo`` (default tenant if omitted).
+
+    Passing an explicit repository lets the simulator run an isolated cycle per
+    tenant — each tenant's predictions/incidents come only from its own telemetry.
+    """
+    repo = repo or get_repository()
     graph = get_graph()
-    sm = get_scenario_manager()
 
     open_incidents = [
         inc for inc in repo.list_incidents() if inc.status != IncidentStatus.resolved
@@ -81,20 +94,29 @@ def run_cycle(now: float) -> None:
             fc = get_forecaster().forecast([(p.ts, p.value) for p in series], threshold)
             if fc is None or fc.probability < 0.3:
                 continue
+            # Anomaly corroboration: a strong robust z-score (latest value far from
+            # the recent median/MAD baseline) raises confidence in the trend forecast.
+            # Purely additive — it never suppresses, so it can only sharpen detection.
+            anomaly_z = robust_zscore([p.value for p in series])
+            probability = fc.probability
+            if abs(anomaly_z) >= 3.5:
+                probability = min(0.99, probability + 0.08)
             pred = Prediction(
                 service_id=service.id,
                 incident_type=itype,
-                probability=round(fc.probability, 3),
+                probability=round(probability, 3),
                 eta_seconds=fc.eta_seconds,
                 metric=metric.value,
                 summary=(
                     f"{service.name}: {metric.value} trending to {threshold:g} "
                     f"(now {fc.current:.1f}); "
-                    + ("breached" if fc.eta_seconds == 0
+                    + ("breached" if fc.already_breached
                        else f"ETA ~{fc.eta_seconds // 60} min")
                 ),
                 features={"slope_per_sec": fc.slope_per_sec, "r2": fc.r2,
-                          "current": fc.current, "threshold": threshold},
+                          "current": fc.current, "threshold": threshold,
+                          "anomaly_z": round(anomaly_z, 2),
+                          "breached": 1.0 if fc.already_breached else 0.0},
                 created_at=now,
             )
             if best is None or pred.probability > best[0]:
@@ -109,35 +131,42 @@ def run_cycle(now: float) -> None:
 
         existing = open_by_service.get(service.id)
         if existing is not None:
-            _update_incident(existing, pred, now)
-        elif prob >= _CREATE_THRESHOLD:
+            _update_incident(existing, pred, now, repo)
+        elif prob >= _CREATE_THRESHOLD and not repo.resolved_recently(
+            service.id, now, _RESOLVE_COOLDOWN_SECONDS
+        ):
             new_candidates.append((service, pred))
 
     # Open incidents deepest-tier first so a root cause suppresses the downstream
     # symptom incidents that fall within its blast radius (event correlation).
     new_candidates.sort(key=lambda c: c[0].tier, reverse=True)
+    opened = 0
     for service, pred in new_candidates:
         if service.id in covered:
             continue
-        _open_incident(service.id, pred, now)
+        if opened >= _MAX_OPENS_PER_CYCLE:
+            break  # defer the rest to the next tick (their predictions persist)
+        _open_incident(service.id, pred, now, repo)
+        opened += 1
         covered.add(service.id)
         covered.update(b.service_id for b in compute_blast_radius(service.id, graph))
 
 
-def _update_incident(incident: Incident, pred: Prediction, now: float) -> None:
-    repo = get_repository()
+def _update_incident(incident: Incident, pred: Prediction, now: float, repo=None) -> None:
+    repo = repo or get_repository()
     incident.probability = pred.probability
     incident.eta_seconds = pred.eta_seconds
-    # Promote to active once the lead metric has actually breached.
-    if pred.eta_seconds == 0 and incident.status == IncidentStatus.predicted:
+    # Promote to active once the lead metric has actually breached (explicit flag,
+    # not eta==0 — a flat/non-rising series also has eta==0 but is NOT a breach).
+    if pred.features.get("breached", 0.0) >= 1.0 and incident.status == IncidentStatus.predicted:
         incident.status = IncidentStatus.active
         incident.log(now, "breached", f"{pred.metric} crossed its critical threshold.")
     incident.updated_at = now
     repo.upsert_incident(incident)
 
 
-def _open_incident(service_id: str, pred: Prediction, now: float) -> None:
-    repo = get_repository()
+def _open_incident(service_id: str, pred: Prediction, now: float, repo=None) -> None:
+    repo = repo or get_repository()
     graph = get_graph()
     sm = get_scenario_manager()
     service = repo.get_service(service_id)
@@ -226,7 +255,7 @@ def _open_incident(service_id: str, pred: Prediction, now: float) -> None:
     # --- autonomous self-healing (policy-gated) ---
     if get_policy().allows_auto(incident.plan.max_risk):
         try:
-            approve_and_execute(incident.id, now, actor="autonomous", role="system")
+            approve_and_execute(incident.id, now, actor="autonomous", role="system", repo=repo)
             logger.info("Auto-healed incident %s (risk<=policy)", incident.id)
         except WorkflowError as exc:  # pragma: no cover - defensive
             logger.warning("Auto-heal failed for %s: %s", incident.id, exc)

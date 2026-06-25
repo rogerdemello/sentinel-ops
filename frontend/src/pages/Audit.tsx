@@ -7,7 +7,7 @@ export default function Audit() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-100">Remediation Audit Log</h1>
+      <h1 className="mb-1 text-[1.75rem] font-medium text-slate-100">Remediation Audit Log</h1>
       <p className="mb-6 text-sm text-slate-400">
         Every executed action — who/what/when, executor, and result. The backbone of
         accountable autonomous operations.

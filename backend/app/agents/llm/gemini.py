@@ -50,7 +50,10 @@ class GeminiProvider(LLMProvider):
             model = genai.GenerativeModel(
                 get_settings().gemini_model, generation_config=gen_cfg
             )
-            resp = model.generate_content(prompt)
+            # Bound the call so a hung provider can't stall the engine tick.
+            resp = model.generate_content(
+                prompt, request_options={"timeout": get_settings().llm_timeout_seconds}
+            )
             return resp.text or ""
         except Exception as exc:  # noqa: BLE001
             raise LLMError(f"Gemini call failed: {exc}") from exc
