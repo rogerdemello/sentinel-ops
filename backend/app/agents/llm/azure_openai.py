@@ -28,6 +28,11 @@ class AzureOpenAIProvider(LLMProvider):
                 azure_endpoint=s.azure_openai_endpoint,
                 api_key=s.azure_openai_api_key,
                 api_version=s.azure_openai_api_version,
+                # Bound each call so a slow/hung provider can't stall the engine tick
+                # (the SDK default is 600s). The router handles retries/failover, so
+                # disable the SDK's own retries to avoid compounding latency.
+                timeout=s.llm_timeout_seconds,
+                max_retries=0,
             )
         return self._client
 

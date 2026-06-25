@@ -3,16 +3,70 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: #0a0e17;
-  color: #e6ebf5;
+  font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Warm parchment canvas with a barely-there gradient so it never feels flat. */
+  background-color: #f3eee4;
+  background-image:
+    radial-gradient(1100px 600px at 12% -8%, rgba(111, 143, 106, 0.06), transparent 60%),
+    radial-gradient(900px 520px at 100% 0%, rgba(192, 132, 87, 0.05), transparent 55%);
+  background-attachment: fixed;
+  color: #3c382f;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2 {
+  font-family: "Fraunces", ui-serif, Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: rgba(111, 143, 106, 0.22);
+}
+
+/* Soft, warm scrollbar that matches the canvas. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d8cfba transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d8cfba;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #c7bca2;
+  background-clip: content-box;
 }
 
 .reactflow-wrapper .react-flow__attribution {
   display: none;
+}
+
+/* Honor users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

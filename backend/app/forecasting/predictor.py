@@ -20,11 +20,15 @@ _WINDOW = 40
 class Forecast:
     breaching: bool
     probability: float  # 0..1
-    eta_seconds: int  # seconds until threshold crossed (0 if already over)
+    eta_seconds: int  # seconds until threshold crossed (0 if already over OR not rising)
     current: float
     slope_per_sec: float
     threshold: float
     r2: float
+    # Explicit "the metric is already past its threshold" signal. Distinguishes a
+    # genuine breach from the other eta_seconds==0 case (flat/non-rising series),
+    # which eta alone cannot. The engine promotes predicted→active on this flag.
+    already_breached: bool = False
 
 
 def _linfit(ts: np.ndarray, ys: np.ndarray) -> tuple[float, float, float]:
@@ -57,15 +61,15 @@ def forecast_breach(
 
     # Already breached.
     if current >= threshold:
-        return Forecast(True, 0.99, 0, current, slope, threshold, r2)
+        return Forecast(True, 0.99, 0, current, slope, threshold, r2, already_breached=True)
 
-    # Not rising meaningfully -> no imminent breach.
+    # Not rising meaningfully -> no imminent breach (eta=0 here means "n/a", NOT breach).
     if slope <= 1e-6:
-        return Forecast(False, 0.02, 0, current, slope, threshold, r2)
+        return Forecast(False, 0.02, 0, current, slope, threshold, r2, already_breached=False)
 
     eta = (threshold - current) / slope  # seconds
     if eta <= 0:
-        return Forecast(True, 0.95, 0, current, slope, threshold, r2)
+        return Forecast(True, 0.95, 0, current, slope, threshold, r2, already_breached=True)
 
     # Probability blends: trend fit quality (r2), how close we already are to the
     # threshold, and imminence (closer ETA -> higher probability). Capped at 0.98.

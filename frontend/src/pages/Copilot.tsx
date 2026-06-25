@@ -12,6 +12,7 @@ const SUGGESTIONS = [
 export default function Copilot() {
   const [q, setQ] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const ask = async (question: string) => {
@@ -19,8 +20,11 @@ export default function Copilot() {
     setQ(question);
     setBusy(true);
     setAnswer(null);
+    setError(null);
     try {
       setAnswer(await api.copilot(question));
+    } catch (e: any) {
+      setError(e?.message ?? "The copilot request failed. Is the backend running?");
     } finally {
       setBusy(false);
     }
@@ -28,7 +32,7 @@ export default function Copilot() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-100">Ops Copilot</h1>
+      <h1 className="mb-1 text-[1.75rem] font-medium text-slate-100">Ops Copilot</h1>
       <p className="mb-6 text-sm text-slate-400">
         Ask anything about the live system — answered from current telemetry, predictions,
         and incidents.
@@ -36,7 +40,11 @@ export default function Copilot() {
 
       <Card className="mb-4">
         <div className="flex gap-2">
+          <label htmlFor="copilot-input" className="sr-only">
+            Ask the Ops Copilot a question
+          </label>
           <input
+            id="copilot-input"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && ask(q)}
@@ -63,6 +71,12 @@ export default function Copilot() {
           ))}
         </div>
       </Card>
+
+      {error && (
+        <Card title="Answer">
+          <div className="text-sm text-red-300">{error}</div>
+        </Card>
+      )}
 
       {answer && (
         <Card title="Answer">

@@ -13,7 +13,21 @@ import type {
   TelemetryEvent,
 } from "./types";
 
-const client = axios.create({ baseURL: "" });
+// In dev and the single-origin docker/nginx deploy, the API is same-origin ("").
+// For a split deploy (frontend and backend on different hosts, e.g. Render), set
+// VITE_API_BASE at build time to the backend's public origin.
+const client = axios.create({ baseURL: import.meta.env.VITE_API_BASE ?? "" });
+
+export interface EvalReport {
+  available: boolean;
+  scenarios?: number;
+  detected?: number;
+  recall?: number;
+  precision?: number;
+  false_positives_baseline?: number;
+  early_warning_rate?: number;
+  mean_lead_time_min?: number | null;
+}
 
 export interface Health {
   status: string;
@@ -103,5 +117,5 @@ export const api = {
   copilot: (question: string) =>
     client.post<{ answer: string }>("/api/copilot", { question }).then((r) => r.data.answer),
 
-  evalReport: () => client.get<any>("/api/eval/report").then((r) => r.data),
+  evalReport: () => client.get<EvalReport>("/api/eval/report").then((r) => r.data),
 };

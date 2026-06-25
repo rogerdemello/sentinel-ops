@@ -12,7 +12,7 @@ export default function Impact() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold text-slate-100">Executive Impact</h1>
+      <h1 className="mb-1 text-[1.75rem] font-medium text-slate-100">Executive Impact</h1>
       <p className="mb-6 text-sm text-slate-400">
         Technical incidents translated into business terms.
       </p>

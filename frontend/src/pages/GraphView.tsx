@@ -6,9 +6,9 @@ import { usePoll } from "../lib/usePoll";
 import { Card, Badge } from "../components/ui";
 
 const STATUS_COLOR: Record<string, string> = {
-  healthy: "#10b981",
-  warning: "#eab308",
-  critical: "#ef4444",
+  healthy: "#6f8f6a",
+  warning: "#c59a3f",
+  critical: "#b5524a",
 };
 
 export default function GraphView() {
@@ -42,15 +42,19 @@ export default function GraphView() {
         position: { x: s.tier * 230, y: idx * 95 + (s.tier % 2) * 45 },
         data: { label: s.name },
         style: {
-          background: "#161d2e",
-          color: "#e6ebf5",
+          background: "#fffdf8",
+          color: "#3c382f",
           border: `2px solid ${
-            isRoot ? "#ef4444" : inBlast ? "#f59e0b" : STATUS_COLOR[status]
+            isRoot ? "#b5524a" : inBlast ? "#c08457" : STATUS_COLOR[status]
           }`,
-          borderRadius: 10,
+          borderRadius: 12,
           fontSize: 12,
+          fontWeight: 500,
           width: 150,
-          boxShadow: isRoot ? "0 0 0 3px rgba(239,68,68,0.3)" : undefined,
+          padding: "2px 0",
+          boxShadow: isRoot
+            ? "0 0 0 4px rgba(181,82,74,0.16), 0 8px 20px -8px rgba(72,58,30,0.2)"
+            : "0 4px 14px -8px rgba(72,58,30,0.25)",
         },
       };
     });
@@ -59,7 +63,13 @@ export default function GraphView() {
       source: d.source_id,
       target: d.target_id,
       animated: blastIds.has(d.source_id) && (blastIds.has(d.target_id) || rootIds.has(d.target_id)),
-      style: { stroke: "#334155" },
+      style: {
+        stroke:
+          blastIds.has(d.source_id) && (blastIds.has(d.target_id) || rootIds.has(d.target_id))
+            ? "#c08457"
+            : "#cabfa6",
+        strokeWidth: 1.5,
+      },
     }));
     return { nodes, edges };
   }, [graph, statusById, blastIds, rootIds]);
@@ -68,7 +78,7 @@ export default function GraphView() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">Dependency Graph</h1>
+          <h1 className="text-[1.75rem] text-slate-100">Dependency Graph</h1>
           <p className="text-sm text-slate-400">Live topology with health overlay and blast-radius highlight.</p>
         </div>
         <div className="flex gap-2 text-xs">
@@ -80,7 +90,7 @@ export default function GraphView() {
       <Card className="reactflow-wrapper" >
         <div style={{ height: 560 }}>
           <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }}>
-            <Background color="#1e2740" gap={20} />
+            <Background color="#ddd3bf" gap={22} />
             <Controls />
           </ReactFlow>
         </div>

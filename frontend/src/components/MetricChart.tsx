@@ -25,15 +25,23 @@ export default function MetricChart({
   label,
   threshold,
   height = 120,
-  color = "#5b8cff",
+  color = "#6f8f6a",
 }: Props) {
   const [data, setData] = useState<{ i: number; value: number }[]>([]);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
     const run = async () => {
-      const pts = await api.series(serviceId, metric, 80);
-      if (alive) setData(pts.map((p, i) => ({ i, value: p.value })));
+      try {
+        const pts = await api.series(serviceId, metric, 80);
+        if (alive) {
+          setData(pts.map((p, i) => ({ i, value: p.value })));
+          setFailed(false);
+        }
+      } catch {
+        if (alive) setFailed(true);
+      }
     };
     run();
     const id = setInterval(run, 2000);
@@ -56,6 +64,14 @@ export default function MetricChart({
           </span>
         </div>
       )}
+      {data.length === 0 ? (
+        <div
+          className="flex items-center justify-center rounded-lg border border-dashed border-ink-600 text-xs text-slate-500"
+          style={{ height }}
+        >
+          {failed ? "Metric unavailable" : "Waiting for data…"}
+        </div>
+      ) : (
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <defs>
@@ -65,26 +81,32 @@ export default function MetricChart({
             </linearGradient>
           </defs>
           <XAxis dataKey="i" hide />
-          <YAxis tick={{ fill: "#64748b", fontSize: 10 }} width={34} domain={[0, "auto"]} />
+          <YAxis tick={{ fill: "#9b927b", fontSize: 10 }} width={34} domain={[0, "auto"]} axisLine={false} tickLine={false} />
           <Tooltip
-            contentStyle={{ background: "#0f1523", border: "1px solid #1e2740", borderRadius: 8 }}
+            contentStyle={{
+              background: "#fffdf8",
+              border: "1px solid #e4dccb",
+              borderRadius: 12,
+              boxShadow: "0 8px 24px -12px rgba(72,58,30,0.25)",
+            }}
             labelStyle={{ display: "none" }}
-            itemStyle={{ color: "#e6ebf5" }}
+            itemStyle={{ color: "#3c382f" }}
             formatter={(v: number) => [v.toFixed(1), metric]}
           />
           {threshold != null && (
-            <ReferenceLine y={threshold} stroke="#ef4444" strokeDasharray="4 4" />
+            <ReferenceLine y={threshold} stroke="#c08457" strokeDasharray="4 4" strokeWidth={1.5} />
           )}
           <Area
             type="monotone"
             dataKey="value"
-            stroke={breaching ? "#ef4444" : color}
+            stroke={breaching ? "#b5524a" : color}
             fill={`url(#g-${serviceId}-${metric})`}
             strokeWidth={2}
             isAnimationActive={false}
           />
         </AreaChart>
       </ResponsiveContainer>
+      )}
     </div>
   );
 }

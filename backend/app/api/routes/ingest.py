@@ -7,11 +7,12 @@ SentinelOps in production.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.api.deps import tenant_repo
 from app.clock import get_clock
-from app.db.repository import get_repository
+from app.db.repository import Repository
 from app.telemetry.schema import (
     EventSeverity,
     EventType,
@@ -39,19 +40,17 @@ class EventIn(BaseModel):
 
 
 @router.post("/metrics")
-def ingest_metrics(points: list[MetricIn]) -> dict:
-    repo = get_repository()
+def ingest_metrics(points: list[MetricIn], repo: Repository = Depends(tenant_repo)) -> dict:
     now = get_clock().now()
     for p in points:
         repo.record_metric(
             MetricPoint(service_id=p.service_id, name=p.name, value=p.value, ts=p.ts or now)
         )
-    return {"ingested": len(points)}
+    return {"ingested": len(points), "tenant": repo.tenant_id}
 
 
 @router.post("/events")
-def ingest_events(events: list[EventIn]) -> dict:
-    repo = get_repository()
+def ingest_events(events: list[EventIn], repo: Repository = Depends(tenant_repo)) -> dict:
     now = get_clock().now()
     for e in events:
         repo.record_event(
@@ -60,4 +59,4 @@ def ingest_events(events: list[EventIn]) -> dict:
                 message=e.message, ts=e.ts or now,
             )
         )
-    return {"ingested": len(events)}
+    return {"ingested": len(events), "tenant": repo.tenant_id}

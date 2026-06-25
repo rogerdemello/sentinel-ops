@@ -12,14 +12,18 @@ export function Card({
   right?: ReactNode;
 }) {
   return (
-    <div className={`rounded-xl border border-ink-600 bg-ink-800 ${className}`}>
+    <div
+      className={`animate-fade-up rounded-2xl border border-ink-600 bg-ink-800 shadow-card ${className}`}
+    >
       {title && (
-        <div className="flex items-center justify-between border-b border-ink-600 px-4 py-2.5">
-          <h3 className="text-sm font-semibold text-slate-200">{title}</h3>
+        <div className="flex items-center justify-between border-b border-ink-600/70 px-5 py-3">
+          <h3 className="text-[13px] font-semibold uppercase tracking-wide text-slate-400">
+            {title}
+          </h3>
           {right}
         </div>
       )}
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </div>
   );
 }
@@ -51,21 +55,84 @@ export function Badge({ kind, text }: { kind: string; text?: string }) {
 }
 
 export function StatusDot({ status }: { status: string }) {
-  const color =
-    status === "critical" || status === "active"
-      ? "bg-red-400"
-      : status === "warning" || status === "predicted" || status === "mitigating"
-        ? "bg-yellow-400"
-        : "bg-emerald-400";
-  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${color}`} />;
+  const critical = status === "critical" || status === "active";
+  const warn = status === "warning" || status === "predicted" || status === "mitigating";
+  const color = critical ? "bg-red-400" : warn ? "bg-amber-400" : "bg-emerald-400";
+  return (
+    <span className="relative inline-flex h-2.5 w-2.5">
+      {critical && (
+        <span className="absolute inline-flex h-full w-full animate-pulse-soft rounded-full bg-red-400/50" />
+      )}
+      <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${color}`} />
+    </span>
+  );
 }
 
 export function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-ink-600 bg-ink-800 p-4">
-      <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-slate-100">{value}</div>
-      {sub && <div className="mt-1 text-xs text-slate-400">{sub}</div>}
+    <div className="animate-fade-up rounded-2xl border border-ink-600 bg-ink-800 p-5 shadow-card transition-shadow duration-300 hover:shadow-lift">
+      <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1.5 font-display text-[1.85rem] leading-none text-slate-100">{value}</div>
+      {sub && <div className="mt-2 text-xs text-slate-400">{sub}</div>}
+    </div>
+  );
+}
+
+/** Pulsing placeholder shown while first data is loading. */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-lg bg-ink-700 ${className}`} />;
+}
+
+/** A grid of stat-sized skeletons (used before the first poll resolves). */
+export function StatSkeletons({ count = 4 }: { count?: number }) {
+  return (
+    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <Skeleton key={i} className="h-[88px]" />
+      ))}
+    </div>
+  );
+}
+
+/** Friendly empty state with an optional call-to-action. */
+export function EmptyState({
+  title,
+  hint,
+  action,
+}: {
+  title: string;
+  hint?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink-600 bg-ink-800/50 px-6 py-10 text-center">
+      <div className="text-sm font-medium text-slate-300">{title}</div>
+      {hint && <div className="max-w-md text-xs text-slate-500">{hint}</div>}
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+  );
+}
+
+/** Inline banner for connection / error feedback. */
+export function Banner({
+  kind = "error",
+  children,
+}: {
+  kind?: "error" | "warning" | "info";
+  children: ReactNode;
+}) {
+  const cls =
+    kind === "error"
+      ? "border-red-500/40 bg-red-500/10 text-red-200"
+      : kind === "warning"
+        ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-200"
+        : "border-sky-500/40 bg-sky-500/10 text-sky-200";
+  return (
+    <div role="alert" className={`mb-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${cls}`}>
+      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-current" />
+      <span>{children}</span>
     </div>
   );
 }
